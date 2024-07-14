@@ -1,0 +1,174 @@
+.numbers {
+  background-color: white;
+  color: #061633bf;
+  display: flex;
+  padding: 4rem 2rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+}
+
+.numbers .facts {
+  display: flex;
+  flex-direction: row;
+  width: 600px;
+  max-width: 80vw;
+  justify-content: space-between;
+  margin: 0 auto;
+  gap: 2rem;
+}
+
+.fact {
+  text-align: center;
+}
+
+.fact .number {
+  font-size: 2.5rem;
+  font-weight: 600;
+}
+.sub-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  max-width: 1200px;
+  line-height: 2rem;
+  text-align: center;
+}
+#pricing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: white;
+  color: #032d6c;
+  padding: 4rem 2rem;
+}
+
+.pricing-image{
+  align-self: center;
+}
+
+.plans {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  margin: 2rem 0;
+  flex-wrap: wrap;
+  align-items: stretch;
+}
+
+.plan {
+  border-radius: 19px;
+  width: 20rem;
+  padding: 2rem 2rem 1rem;
+  background-color: white;
+  color: black;
+  display: flex;
+  gap: 1.5rem;
+  flex-direction: column;
+  justify-content: space-between;
+  border: 0.5vmin solid #123971;
+  overflow: hidden;
+  color: black;
+}
+
+.content {
+  display: flex;
+  gap: 1.5rem;
+  flex-direction: column;
+}
+
+.plan-desc {
+  font-size: 0.9rem;
+  padding-top: 0.5rem;
+  text-align: center;
+  color: #032d6c;
+}
+
+.plan-desc1{
+  font-size: 1.5rem;
+  color: black;
+}
+
+.plan-type {
+  color: #032d6c;
+  font-size: 2.5rem;
+  font-weight: 650;
+  line-height: 3rem;
+  text-align: center;
+}
+
+.pricing {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 1rem;
+}
+
+.duration {
+  color: #777777;
+  font-size: 1.25rem;
+}
+
+.price {
+  font-weight: 800;
+  font-size: 2.5rem;
+  margin: 0;
+}
+
+.features {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  color: #032d6c;
+  text-align: justify;
+}
+.stat-title {
+  font-size: 3rem;
+  font-weight: 700;
+  line-height: 4rem;
+  text-align: center;
+}
+
+.signup {
+  background-color: #032d6c;
+  color: white;
+  border-radius: 8%;
+  padding: 0.6rem;
+  text-align: center;
+}
+
+@media only screen and (max-width: 1286px) {
+}
+@media only screen and (max-width: 1024px) {
+}
+@media (max-width: 930px) {
+}
+@media only screen and (max-width: 768px) {
+  .numbers .facts {
+    .fact {
+      .number {
+        font-size: 1.75rem;
+      }
+      .desc {
+        font-size: 0.8rem;
+      }
+    }
+  }
+  .stat-title {
+    font-size: 2rem;
+    text-align: left;
+  }
+}
+@media only screen and (max-width: 616px) {
+}
+@media only screen and (max-width: 480px) {
+}
+@media (max-width: 420px) {
+}
+@media (max-width: 391px) {
+}
+@media (max-width: 350px) {
+}
+@media (max-width: 320px) {
+}

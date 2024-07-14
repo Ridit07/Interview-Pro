@@ -1,0 +1,214 @@
+.numbers {
+  background-color: white;
+  color: #061633bf;
+  display: flex;
+  padding: 4rem 2rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+}
+
+.numbers .facts {
+  display: flex;
+  flex-direction: row;
+  width: 600px;
+  max-width: 80vw;
+  justify-content: space-between;
+  margin: 0 auto;
+  gap: 2rem;
+}
+
+.fact {
+  text-align: center;
+}
+
+.fact .number {
+  font-size: 2.5rem;
+  font-weight: 600;
+}
+.sub-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  max-width: 1200px;
+  line-height: 2rem;
+  text-align: center;
+}
+#login-choose {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: white;
+  color: #0b2345;
+  padding: 4rem 2rem;
+}
+
+.plans {
+  display: flex;
+  justify-content: center;
+  gap: 5rem;
+  margin: 2rem 0;
+  flex-wrap: wrap;
+  align-items: stretch;
+}
+
+.plan1 {
+  background-color: #d6e1f3;
+  background-color: #d6e1f3;
+  border-radius: 1rem;
+  padding: 2rem;
+  box-shadow: 10px 10px 15px hsla(216, 95%, 36%, 0.3);
+  transition: box-shadow 0.3s ease;
+  border-radius: 40px;
+  width: 24rem;
+  height: 36rem;
+  padding: 2rem 2rem 1rem;
+  background-color: white;
+  color: black;
+  display: flex;
+  gap: 2rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  border: 0.1vmin solid #054BB480;
+  overflow: hidden;
+  color: #054BB480;
+}
+
+.plan1:hover {
+  box-shadow: 15px 15px 20px #054BB480;
+}
+
+.plan2 {
+  background-color: #d6e1f3;
+  border-radius: 1rem;
+  padding: 2rem;
+  box-shadow: 10px 10px 15px hsla(216, 95%, 36%, 0.3);
+  transition: box-shadow 0.3s ease;
+  border-radius: 40px;
+  width: 24rem;
+  height: 37rem;
+  padding: 2rem 2rem 1rem;
+  background-color: white;
+  color: black;
+  display: flex;
+  gap: 2rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  border: 0.1vmin solid #054BB480;
+  overflow: hidden;
+  color: #054BB480;
+}
+
+.plan2:hover {
+  box-shadow: 15px 15px 20px #054BB480;
+}
+
+.log-content {
+  display: flex;
+  gap: 2rem;
+  flex-direction: column;
+}
+
+.login-desc {
+  font-size: 1rem;
+  color: #777777;
+}
+
+.pricing {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 1rem;
+}
+
+.duration {
+  color: #777777;
+  font-size: 1.25rem;
+}
+
+.price {
+  font-weight: 800;
+  font-size: 2.5rem;
+  margin: 0;
+}
+
+.features1 {
+  display: flex;
+  flex-direction: column;
+  text-align: center;
+  gap: 0.5rem;
+}
+.stat-title {
+  font-size: 3rem;
+  font-weight: 700;
+  line-height: 4rem;
+  padding-bottom: 1rem;
+  text-align: center;
+}
+
+.plan1-desc{
+  padding: 0.5rem 1rem 0.5rem 1rem;
+  text-align: center;
+  font-weight: 600;
+}
+
+.desc1{
+  background-color: #FBDB6AB0;
+}
+
+.desc2{
+  background-color: #9CECFE87;
+}
+
+.desc3{
+  background-color:#67C787AB;
+}
+
+.sub-desc{
+  font-size: 1.2rem;
+  font-weight: 450;
+}
+
+.logbutton {
+  background-color: #09005F;
+  padding: 0.8rem 5rem 0.8rem 5rem;
+  color: white;
+}
+
+@media only screen and (max-width: 1286px) {
+}
+@media only screen and (max-width: 1024px) {
+}
+@media (max-width: 930px) {
+}
+@media only screen and (max-width: 768px) {
+  .numbers .facts {
+    .fact {
+      .number {
+        font-size: 1.75rem;
+      }
+      .desc {
+        font-size: 0.8rem;
+      }
+    }
+  }
+  .stat-title {
+    font-size: 2rem;
+    text-align: left;
+  }
+}
+@media only screen and (max-width: 616px) {
+}
+@media only screen and (max-width: 480px) {
+}
+@media (max-width: 420px) {
+}
+@media (max-width: 391px) {
+}
+@media (max-width: 350px) {
+}
+@media (max-width: 320px) {
+}
