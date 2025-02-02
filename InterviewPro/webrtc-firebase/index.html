@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WebRTC Code Collaboration</title>
+  <link rel="stylesheet" href="style.css" />
+  <!-- Font Awesome for Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+  <!-- Navigation Bar -->
+  <nav class="navbar">
+    <div class="navbar-container">
+      <div class="navbar-brand">
+        <h2>CodeCollab</h2>
+      </div>
+      <div class="navbar-controls">
+        <button id="toggleCameraButton" class="control-button">
+          <i class="fas fa-video"></i> Turn Camera Off
+        </button>
+        <button id="toggleMicButton" class="control-button">
+          <i class="fas fa-microphone"></i> Mute Microphone
+        </button>
+        <button id="endCallButton" class="control-button end-call">
+          <i class="fas fa-phone-slash"></i> End Call
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <div class="main-container">
+    <!-- Middle Panel: Video Feeds -->
+    <div class="middle-panel">
+      <div class="video-container">
+        <h3>Local Stream</h3>
+        <video id="webcamVideo" autoplay playsinline></video>
+      </div>
+      <div class="video-container">
+        <h3>Remote Stream</h3>
+        <video id="remoteVideo" autoplay playsinline></video>
+      </div>
+    </div>
+
+    <!-- Right Panel: Code Editor, Input, Output -->
+    <div class="right-panel">
+      <!-- Code Editor Section -->
+      <div class="code-editor-container">
+        <div class="editor-header">
+          <label for="languageSelect">Language:</label>
+          <select id="languageSelect" class="language-select">
+            <option value="python">Python</option>
+            <option value="c_cpp">C/C++</option>
+            <option value="java">Java</option>
+            <option value="javascript">JavaScript</option>
+            <option value="csharp">C#</option>
+            <option value="ruby">Ruby</option>
+            <option value="php">PHP</option>
+            <option value="golang">Go</option>
+            <option value="typescript">TypeScript</option>
+            <option value="swift">Swift</option>
+            <option value="kotlin">Kotlin</option>
+            <option value="perl">Perl</option>
+            <option value="bash">Bash</option>
+            <option value="fortran">Fortran</option>
+            <option value="nodejs">Node.js</option>
+            <option value="r">R</option>
+          </select>
+          <button id="runCodeButton" class="run-button">
+            <i class="fas fa-play"></i> Run
+          </button>
+        </div>
+        <textarea id="codeEditor" class="code-editor" placeholder="Write your code here..."></textarea>
+      </div>
+
+      <!-- Input and Output Sections -->
+      <div class="io-container">
+        <div class="input-section">
+          <h3>Input</h3>
+          <textarea id="codeInput" class="code-input" placeholder="Provide input here..."></textarea>
+        </div>
+        <div class="output-section">
+          <h3>Output</h3>
+          <textarea id="codeOutput" class="code-output" readonly placeholder="Output will appear here..."></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Left Panel: Chat Box -->
+    <div class="left-panel">
+      <!-- Chat Box -->
+      <div class="chat-container">
+        <h2>Chat Box</h2>
+        <div id="chatBox" class="chat-box"></div>
+        <div class="chat-input-container">
+          <input id="chatInput" type="text" placeholder="Type a message..." />
+          <button id="sendButton" class="send-button"><i class="fas fa-paper-plane"></i> Send</button>
+        </div>
+        <div class="file-upload-container">
+          <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png" />
+          <button id="uploadButton" class="upload-button"><i class="fas fa-upload"></i> </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Include JavaScript -->
+  <script type="module" src="/main.js"></script>
+</body>
+</html>

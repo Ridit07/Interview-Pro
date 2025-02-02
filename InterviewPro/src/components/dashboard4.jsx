@@ -1,25 +1,42 @@
-// Import necessary libraries
-import React, { useState, useEffect } from "react";
-import "./dashboard.css";
-import { FcGoogle } from "react-icons/fc";
-import { SiAccenture, SiSap } from "react-icons/si";
-import { MdDownload } from "react-icons/md";
-import { Link } from "react-router-dom";
+import React, { useState, useEffect, useRef } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import logo from '/Users/riditjain/Downloads/Interview-Pro-main/InterviewPro/src/assets/logo.png'; // Path to your logo
 
-function toUTCString(localDate) {
-  return new Date(localDate.getTime() - localDate.getTimezoneOffset() * 60000).toISOString();
+function adjustTimeByFiveHoursThirtyMinutes(date) {
+  const adjustedDate = new Date(date);
+  adjustedDate.setHours(adjustedDate.getHours() + 5);
+  adjustedDate.setMinutes(adjustedDate.getMinutes() + 30);
+  return adjustedDate;
 }
 
 function toLocalTime(utcDateString) {
+  if (!utcDateString) return null;
   const utcDate = new Date(utcDateString);
-  return new Date(utcDate.getTime() + (utcDate.getTimezoneOffset() * 60000));
+  return new Date(utcDate.getTime() + utcDate.getTimezoneOffset() * 60000);
+}
+
+function formatToIST(date) {
+  if (!date) return "TBD";
+  return new Date(date).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
 }
 
 function Dashboard1() {
   const [interviews, setInterviews] = useState([]);
+  const [filteredInterviews, setFilteredInterviews] = useState([]);
   const [scheduleDates, setScheduleDates] = useState({});
+  const [nameSearch, setNameSearch] = useState("");
+  const [companySearch, setCompanySearch] = useState("");
+  const [sortOrder, setSortOrder] = useState("asc");
+  const [filterType, setFilterType] = useState("current");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [difficultyFilter, setDifficultyFilter] = useState("all");
+
+  const defaultImage = "https://w7.pngwing.com/pngs/981/645/png-transparent-default-profile-united-states-computer-icons-desktop-free-high-quality-person-icon-miscellaneous-silhouette-symbol.png";
+  const interviewerName = sessionStorage.getItem("interviewer_name");
+  const interviewerPic = sessionStorage.getItem("interviewer_picpath");
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetch("http://localhost:5000/api/interviews", {
@@ -36,6 +53,78 @@ function Dashboard1() {
       .catch((error) => console.error("Error fetching interviews:", error));
   }, []);
 
+  useEffect(() => {
+    let filteredData = interviews;
+  
+    if (filterType === "all") {
+      filteredData = interviews;
+    } else if (filterType === "current") {
+      // Filter for status descriptions between 1 and 5
+      filteredData = interviews.filter(
+        (interview) =>
+          parseInt(interview.status_description, 10) >= 0 &&
+          parseInt(interview.status_description, 10) <= 5
+      );
+    } else if (filterType === "completed") {
+      // Filter for status description equal to 6
+      filteredData = interviews.filter(
+        (interview) => parseInt(interview.status_description, 10) === 6
+      );
+    }
+  
+    if (roleFilter !== "all") {
+      filteredData = filteredData.filter(
+        (interview) => interview.role.toLowerCase() === roleFilter.toLowerCase()
+      );
+    }
+  
+    if (difficultyFilter !== "all") {
+      filteredData = filteredData.filter(
+        (interview) => interview.difficulty_level.toLowerCase() === difficultyFilter.toLowerCase()
+      );
+    }
+  
+    filteredData = filteredData.filter(
+      (interview) =>
+        interview.candidate_name.toLowerCase().includes(nameSearch.toLowerCase()) &&
+        interview.company_name.toLowerCase().includes(companySearch.toLowerCase())
+    );
+  
+    setFilteredInterviews(filteredData);
+  }, [filterType, interviews, roleFilter, difficultyFilter, nameSearch, companySearch]);
+  
+
+  const getInterviewerPhoto = (picPath) => {
+    return picPath ? `http://localhost:5000${picPath}` : defaultImage;
+  };
+
+  const handleStartInterview = (interview) => {
+    // Store all the relevant data in sessionStorage
+    sessionStorage.setItem("candidate_name", interview.candidate_name);
+    sessionStorage.setItem("candidate_email", interview.candidate_email);
+    sessionStorage.setItem("candidate_contact", interview.candidate_contact);
+    sessionStorage.setItem("company_name", interview.company_name);
+    sessionStorage.setItem("company_email", interview.company_email);
+    sessionStorage.setItem("company_icon", interview.company_icon);
+    sessionStorage.setItem("rubric_role", interview.role);
+    sessionStorage.setItem("rubric_difficulty", interview.difficulty_level);
+    sessionStorage.setItem("interview_id", interview.interview_id);
+    // Fetch the rubric data using the correct interview_id
+    fetch(`http://localhost:5000/api/get_rubric/${interview.interview_id}`)
+      .then((res) => res.json())
+      .then((rubricData) => {
+        sessionStorage.setItem("rubric_experience", rubricData.Experience);
+        sessionStorage.setItem("rubric_notes", rubricData.Notes);  // Storing the notes
+        sessionStorage.setItem("rubric_selected_skills", rubricData.SelectedSkills);
+  
+        // Navigate to Preview1 page
+        navigate("/preview1");
+      })
+      .catch((err) => console.error("Error fetching rubric:", err));
+  };
+  
+  
+
   const handleDateChange = (date, interviewId) => {
     setScheduleDates((prevDates) => ({
       ...prevDates,
@@ -46,7 +135,9 @@ function Dashboard1() {
 
   const handleDateSubmit = (interviewId, date) => {
     if (date) {
-      const dateTimeUTC = toUTCString(date);
+      const adjustedDate = adjustTimeByFiveHoursThirtyMinutes(date);
+      const istTime = adjustedDate.toISOString();
+
       fetch("http://localhost:5000/api/schedule_interview", {
         method: "POST",
         credentials: "include",
@@ -55,12 +146,12 @@ function Dashboard1() {
         },
         body: JSON.stringify({
           interview_id: interviewId,
-          datetime: dateTimeUTC,
+          datetime: istTime,
         }),
       })
         .then((response) => {
           if (!response.ok) {
-            throw new Error('Network response was not ok');
+            throw new Error("Network response was not ok");
           }
           return response.json();
         })
@@ -69,7 +160,7 @@ function Dashboard1() {
             setInterviews((prevInterviews) =>
               prevInterviews.map((interview) =>
                 interview.interview_id === interviewId
-                  ? { ...interview, datetime: date.toISOString() }
+                  ? { ...interview, datetime: istTime }
                   : interview
               )
             );
@@ -84,377 +175,436 @@ function Dashboard1() {
     }
   };
 
-  const getStatusButton = (statusDescription, interviewId, datetime) => {
-    const currentTime = new Date();
-    const interviewTime = new Date(datetime);
-    const timeDifference = (interviewTime - currentTime) / (1000 * 60);
+  const handleReject = (interviewId) => {
+    fetch("http://localhost:5000/api/reject_interview", {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        interview_id: interviewId,
+        status_description: -1,
+      }),
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.success) {
+          setInterviews((prevInterviews) =>
+            prevInterviews.map((interview) =>
+              interview.interview_id === interviewId
+                ? { ...interview, status_description: "-1" }
+                : interview
+            )
+          );
+        } else {
+          console.error("Error rejecting interview:", data.error);
+        }
+      })
+      .catch((error) => {
+        console.error("Network error:", error);
+        alert("Network error: " + error.message);
+      });
+  };
 
-    if (statusDescription === "0") {
+  const handleSortByTime = () => {
+    const sortedInterviews = [...filteredInterviews].sort((a, b) => {
+      const timeA = new Date(a.datetime);
+      const timeB = new Date(b.datetime);
+      return sortOrder === "asc" ? timeA - timeB : timeB - timeA;
+    });
+    setFilteredInterviews(sortedInterviews);
+    setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+  };
+
+
+  const handleSubmitReport = (interview) => {
+    // Store all the relevant data in sessionStorage
+    sessionStorage.setItem("candidate_name", interview.candidate_name);
+    sessionStorage.setItem("candidate_email", interview.candidate_email);
+    sessionStorage.setItem("candidate_contact", interview.candidate_contact);
+    sessionStorage.setItem("company_name", interview.company_name);
+    sessionStorage.setItem("company_email", interview.company_email);
+    sessionStorage.setItem("company_icon", interview.company_icon);
+    sessionStorage.setItem("rubric_role", interview.role);
+    sessionStorage.setItem("rubric_difficulty", interview.difficulty_level);
+    sessionStorage.setItem("interview_id", interview.interview_id);
+
+    // Fetch the rubric data
+    fetch(`http://localhost:5000/api/get_rubric/${interview.interview_id}`)
+      .then((res) => res.json())
+      .then((rubricData) => {
+        sessionStorage.setItem("rubric_experience", rubricData.Experience);
+        sessionStorage.setItem("rubric_notes", rubricData.Notes);
+        sessionStorage.setItem("rubric_selected_skills", rubricData.SelectedSkills);
+
+        // Navigate to the RatingPage
+        navigate("/rating");
+      })
+      .catch((err) => console.error("Error fetching rubric:", err));
+  };
+
+
+  const getStatusButton = (interview) => {
+    const currentTime = new Date();
+    const interviewTime = interview.datetime ? new Date(interview.datetime) : null;
+    const timeDifference = interviewTime ? (interviewTime - currentTime) / (1000 * 60) : 0;
+  
+    if (interview.status_description === "0") {
       return (
-        <div>
+        <div className="flex items-center gap-x-2">
           <DatePicker
-            selected={scheduleDates[interviewId]}
-            onChange={(date) => handleDateChange(date, interviewId)}
+            selected={scheduleDates[interview.interview_id]}
+            onChange={(date) => handleDateChange(date, interview.interview_id)}
             showTimeSelect
             dateFormat="Pp"
             placeholderText="Schedule"
+            className="py-1 px-3 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
+          <button
+            onClick={() => handleReject(interview.interview_id)}
+            className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+          >
+            Reject
+          </button>
         </div>
       );
-    } else if (statusDescription === "1") {
-      if (timeDifference > 45) {
-        return <span>Scheduled</span>;
-      } else {
+    } else if (interview.status_description === "1" || interview.status_description === "2") {
+      if (timeDifference > 45 || interview.status_description === "2") {
         return (
-          <button className="px-4 py-2 font-medium tracking-wide text-white capitalize transition-colors duration-300 transform bg-[#191064] rounded-full hover:bg-gray-500 focus:outline-none focus:ring focus:ring-gray-300 focus:ring-opacity-80">
-            Button
+          <button
+            onClick={() => handleStartInterview(interview)} // Pass entire interview object here
+            className="px-3 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors"
+          >
+            Start Interview
           </button>
         );
+      } else {
+        return <span className="text-green-600 font-semibold">Scheduled</span>;
       }
-    } else if (statusDescription === "2") {
+    } else if (interview.status_description === "-1") {
+      return <span className="text-red-500 font-bold">Rejected</span>;
+    } else if (interview.status_description === "3" || interview.status_description === "4") {
       return (
-        <button className="px-4 py-2 font-medium tracking-wide text-white capitalize transition-colors duration-300 transform bg-[#191064] rounded-full hover:bg-gray-500 focus:outline-none focus:ring focus:ring-gray-300 focus:ring-opacity-80">
-          Generate Payment
+        <button
+        onClick={() => handleSubmitReport(interview)} 
+          className="px-3 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors"
+        >
+          Submit Report
         </button>
       );
-    } else if (statusDescription === "3") {
-      return <span>Completed</span>;
-    } else {
-      return null;
+    } 
+    else {
+      return <span className="text-green-600 font-semibold">Completed</span>;
     }
+  };
+  
+
+  const Dropdown = ({ label, options, selected, onSelect }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const dropdownRef = useRef(null);
+
+    useEffect(() => {
+      const handleClickOutside = (event) => {
+        if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+          setIsOpen(false);
+        }
+      };
+
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => {
+        document.removeEventListener("mousedown", handleClickOutside);
+      };
+    }, [dropdownRef]);
+
+    const handleOptionClick = (option) => {
+      onSelect(option);
+      setIsOpen(false);
+    };
+
+    return (
+      <div className="relative inline-block text-left" ref={dropdownRef}>
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className="inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-3 py-1 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+        >
+          {label === "all" ? "All" : label.charAt(0).toUpperCase() + label.slice(1)} 
+          <svg
+            className="ml-2 h-5 w-5"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            aria-hidden="true"
+          >
+            <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.584l3.71-4.354a.75.75 0 111.14.976l-4.25 5a.75.75 0 01-1.14 0l-4.25-5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+          </svg>
+        </button>
+
+        {isOpen && (
+          <div
+            className="origin-top-left absolute left-0 mt-2 w-40 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 overflow-auto max-h-40 z-10"
+          >
+            <ul className="py-1">
+              {options.map((option) => (
+                <li
+                  key={option}
+                  onClick={() => handleOptionClick(option)}
+                  className={`cursor-pointer select-none relative py-2 px-3 hover:bg-gray-100 ${
+                    selected === option ? 'bg-gray-200 font-semibold' : ''
+                  }`}
+                >
+                  {option.charAt(0).toUpperCase() + option.slice(1)}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
     <>
-      <nav className="relative bg-white shadow dark:bg-white">
-        <div className="h-[10vh] p-2">
-          <div className="flex flex-col md:flex-row justify-between md:items-center">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <a href="#">
-                  <h2 className="ml-[1rem] font-bold text-black text-xl">
-                    Dashboard
-                  </h2>
-                </a>
-
-                <div className="hidden mx-10 md:block">
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 flex items-center pl-3">
-                      <svg
-                        className="w-5 h-5 text-gray-400"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                      >
-                        <path
-                          d="M21 21L15 15M17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10Z"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        ></path>
-                      </svg>
-                    </span>
-
-                    <input
-                      type="text"
-                      className="w-full py-2 pl-10 pr-4 text-gray-700 bg-white border rounded-md dark:bg-white-800 dark:text-gray-300 dark:border-gray-600 focus:border-blue-400 dark:focus:border-blue-300 focus:outline-none focus:ring focus:ring-opacity-40 focus:ring-blue-300"
-                      placeholder="Search"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex lg:hidden">
-                <button
-                  type="button"
-                  className="text-gray-500 dark:text-gray-200 hover:text-gray-600 dark:hover:text-gray-400 focus:outline-none focus:text-gray-600 dark:focus:text-gray-400"
-                  aria-label="toggle menu"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="w-6 h-6"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M4 8h16M4 16h16"
-                    />
-                  </svg>
-                </button>
-              </div>
-            </div>
-            <div>
-              <div className="flex items-center gap-x-2 mr-12">
-                <div>
-                  <h1 className="text-xl font-semibold text-black-800 capitalize dark:text-black-800">
-                    Ridit Jain
-                  </h1>
-                </div>
-                <img
-                  className="object-cover w-16 h-16 rounded-full"
-                  src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=faceare&facepad=3&w=688&h=688&q=100"
-                  alt=""
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      </nav>
-
+      {/* Header Section */}
       <div className="space-y-6">
-        <div className="mt-6 ml-6 flex items-center gap-x-2">
-          <img
-            className="object-cover w-16 h-16 rounded"
-            src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=faceare&facepad=3&w=688&h=688&q=100"
-            alt=""
-          />
-
+        <div className="flex justify-between items-center h-[10vh] px-6 bg-white shadow">
+          {/* Left Side - Logo */}
           <div>
-            <h1 className=" text-xl font-semibold text-black-800 capitalize dark:text-black-800">
-              Hi, Ridit!
-            </h1>
+            <Link to="/">
+              <img 
+                src={logo} 
+                alt="Company Logo" 
+                className="w-24 h-24 object-contain cursor-pointer"  
+              />
+            </Link>
+          </div>
+
+          {/* Right Side - Interviewer Info */}
+          <div className="flex items-center gap-x-4">
+            <div>
+              <h1 className="text-xl font-semibold text-gray-800 capitalize">
+                Hi, {interviewerName}!
+              </h1>
+            </div>
+            <img
+              className="object-cover w-16 h-16 rounded-full border-2 border-gray-300"
+              src={getInterviewerPhoto(interviewerPic)}
+              alt="Interviewer"
+            />
           </div>
         </div>
 
-        <div>
-          <h1 className="mb-4 p-4 text-xl font-semibold text-gray-400 bg-[#F2F2F7] capitalize dark:text-gray-400">
-            <Link to="/dashboard3" className="hover:text-black">
-              Requests{" "}
-            </Link>
-            <span className="text-black dark:text-black-500">| Current |</span>{" "}
-            <Link to="/dashboard5" className="hover:text-black">
+        {/* Filter Type Section */}
+        <div className="px-6">
+          <h1 className="mb-4 p-4 text-xl font-semibold text-gray-700 bg-gray-100 rounded-lg flex space-x-4">
+            <span
+              className={`cursor-pointer px-3 py-1 rounded ${
+                filterType === "all" ? "bg-blue-500 text-white" : "hover:bg-blue-100"
+              }`}
+              onClick={() => setFilterType("all")}
+            >
+              All
+            </span>
+            <span
+              className={`cursor-pointer px-3 py-1 rounded ${
+                filterType === "current" ? "bg-blue-500 text-white" : "hover:bg-blue-100"
+              }`}
+              onClick={() => setFilterType("current")}
+            >
+              Current
+            </span>
+            <span
+              className={`cursor-pointer px-3 py-1 rounded ${
+                filterType === "completed" ? "bg-blue-500 text-white" : "hover:bg-blue-100"
+              }`}
+              onClick={() => setFilterType("completed")}
+            >
               Completed
-            </Link>
+            </span>
           </h1>
         </div>
       </div>
-      <section className="">
-        <div className="flex flex-column justify-evenly">
-          <div className="relative mt-4 md:mt-0">
-            <span className="absolute inset-y-0 left-0 flex items-center pl-3">
-              <svg
-                className="w-5 h-5 text-gray-400"
-                viewBox="0 0 24 24"
-                fill="none"
-              >
-                <path
-                  d="M21 21L15 15M17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10Z"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                ></path>
-              </svg>
-            </span>
 
+      {/* Search and Filter Section */}
+      <section className="px-6 mb-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          {/* Search Inputs */}
+          <div className="flex flex-col md:flex-row gap-4">
             <input
               type="text"
-              className="w-full py-2 pl-10 pr-4 text-gray-700 bg-white border rounded-lg dark:bg-white-800 dark:text-gray-300 dark:border-gray-600 focus:border-blue-400 dark:focus:border-blue-300 focus:outline-none focus:ring focus:ring-opacity-40 focus:ring-blue-300"
-              placeholder="Search"
+              placeholder="Search by Name"
+              className="py-2 px-4 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={nameSearch}
+              onChange={(e) => setNameSearch(e.target.value)}
+            />
+            <input
+              type="text"
+              placeholder="Search by Company"
+              className="py-2 px-4 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={companySearch}
+              onChange={(e) => setCompanySearch(e.target.value)}
             />
           </div>
-          <span className="inline-flex overflow-hidden rounded-md border bg-white shadow-sm">
-            <button className="inline-block border-e px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:relative">
-              Company
+
+          {/* Filter Dropdowns */}
+          <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+            <Dropdown
+              label="Role"
+              options={["all", "frontend", "backend", "fullstack", "datascience", "appdev"]}
+              selected={roleFilter}
+              onSelect={setRoleFilter}
+            />
+            <Dropdown
+              label="Difficulty"
+              options={["all", "easy", "medium", "difficult"]}
+              selected={difficultyFilter}
+              onSelect={setDifficultyFilter}
+            />
+            <button
+              className="py-2 px-4 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onClick={handleSortByTime}
+            >
+              Sort by Interview Time ({sortOrder === "asc" ? "Ascending" : "Descending"})
             </button>
-          </span>
-
-          <div className="relative inline-block ml-40">
-            <button className="relative z-10 flex items-center p-2 text-sm text-gray-600 bg-white border border-transparent rounded-md hover:border-[#191064] hover:ring-opacity-40 dark:hover:ring-opacity-40 hover:ring-blue-300 dark:hover:ring-blue-400 hover:ring dark:text-white dark:bg-[#191064] focus:outline-none">
-              <span className="mx-1">Sort By</span>
-              <svg
-                className="w-5 h-5 mx-1"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M12 15.713L18.01 9.70299L16.597 8.28799L12 12.888L7.40399 8.28799L5.98999 9.70199L12 15.713Z"
-                  fill="currentColor"
-                ></path>
-              </svg>
-            </button>
-
-            <div className="absolute right-0 z-20 w-56 py-2 mt-2 overflow-hidden origin-top-right bg-white rounded-md shadow-xl dark:bg-gray-800 invisible hover:visible">
-              <a
-                href="#"
-                className="flex items-center p-3 -mt-2 text-sm text-gray-600 transition-colors duration-300 transform dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white"
-              >
-                <img
-                  className="flex-shrink-0 object-cover mx-1 rounded-full w-9 h-9"
-                  src="https://images.unsplash.com/photo-1523779917675-b6ed3a42a561?ixid=MnwxMjA3fDB8MHxzZWFyY2h8N3x8d29tYW4lMjBibHVlfGVufDB8fDB8fA%3D%3D&ixlib=rb-1.2.1&auto=format&fit=face&w=500&q=200"
-                  alt="jane avatar"
-                />
-                <div className="mx-1">
-                  <h1 className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-                    Jane Doe
-                  </h1>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    janedoe@exampl.com
-                  </p>
-                </div>
-              </a>
-
-              <hr className="border-gray-200 dark:border-gray-700" />
-
-              <a
-                href="#"
-                className="block px-4 py-3 text-sm text-gray-600 capitalize transition-colors duration-300 transform dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white"
-              >
-                view profile
-              </a>
-
-              <a
-                href="#"
-                className="block px-4 py-3 text-sm text-gray-600 capitalize transition-colors duration-300 transform dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white"
-              >
-                Settings
-              </a>
-
-              <a
-                href="#"
-                className="block px-4 py-3 text-sm text-gray-600 capitalize transition-colors duration-300 transform dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white"
-              >
-                Keyboard shortcuts
-              </a>
-
-              <hr className="border-gray-200 dark:border-gray-700" />
-
-              <a
-                href="#"
-                className="block px-4 py-3 text-sm text-gray-600 capitalize transition-colors duration-300 transform dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white"
-              >
-                Company profile
-              </a>
-
-              <a
-                href="#"
-                className="block px-4 py-3 text-sm text-gray-600 capitalize transition-colors duration-300 transform dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white"
-              >
-                Team
-              </a>
-
-              <a
-                href="#"
-                className="block px-4 py-3 text-sm text-gray-600 capitalize transition-colors duration-300 transform dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white"
-              >
-                Invite colleagues
-              </a>
-
-              <hr className="border-gray-200 dark:border-gray-700" />
-
-              <a
-                href="#"
-                className="block px-4 py-3 text-sm text-gray-600 capitalize transition-colors duration-300 transform dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white"
-              >
-                Help
-              </a>
-              <a
-                href="#"
-                className="block px-4 py-3 text-sm text-gray-600 capitalize transition-colors duration-300 transform dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 dark:hover:text-white"
-              >
-                Sign Out
-              </a>
-            </div>
           </div>
-
-          <a
-            className="inline-block rounded-full border border-[#191064] p-3 text-[#191064] hover:bg-[#191064] hover:text-white focus:outline-none focus:ring active:bg-indigo-500"
-            href="#"
-          >
-            <span className="sr-only"> Download </span>
-
-            <MdDownload className="size-6" />
-          </a>
         </div>
+      </section>
 
-        <div className="flex flex-col mt-6">
-          <div className="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
-            <div className="inline-block min-w-full py-2 align-middle md:px-6 lg:px-8">
-              <div className="overflow-hidden">
-                <table className="min-w-full divide-y divide-gray-300 dark:divide-black-800">
-                  <thead className="bg-white-50 dark:bg-white-800">
-                    <tr>
-                      <th
-                        scope="col"
-                        className="pl-20 px-4 py-3.5 text-sm font-normal text-left rtl:text-right text-gray-500 dark:text-gray-400"
-                      >
-                        Name
-                      </th>
-                      <th
-                        scope="col"
-                        className="py-3.5 px-4 text-sm font-normal text-left rtl:text-right text-gray-500 dark:text-gray-400"
-                      >
-                        <div className="flex items-center gap-x-3 ">
-                          <span>Company</span>
-                        </div>
-                      </th>
+      {/* Interviews Table Section */}
+      <section className="px-6">
+        <div className="overflow-x-auto">
+          <div className="inline-block min-w-full py-2 align-middle">
+            <div className="overflow-hidden shadow-md rounded-lg">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    {/* Name Column */}
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-sm font-semibold text-gray-700"
+                    >
+                      Name
+                    </th>
 
-                      <th
-                        scope="col"
-                        className="px-12 py-3.5 text-sm font-normal text-left rtl:text-right text-gray-500 dark:text-gray-400"
-                      >
-                        <button className="flex items-center gap-x-2">
-                          <span>Time</span>
-                        </button>
-                      </th>
+                    {/* Company Column */}
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-sm font-semibold text-gray-700"
+                    >
+                      Company
+                    </th>
 
-                      <th
-                        scope="col"
-                        className="px-4 py-3.5 text-sm font-normal text-left rtl:text-right text-gray-500 dark:text-gray-400"
-                      >
-                        Action
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200 dark:divide-gray-300 dark:bg-white-900">
-                    {interviews.map((interview) => (
-                      <tr key={interview.interview_id}>
-                        <td className="pl-20 font-bold px-4 py-4 text-sm text-black-500 dark:text-black-800 whitespace-nowrap">
+                    {/* Role Column */}
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-sm font-semibold text-gray-700"
+                    >
+                      Role
+                    </th>
+
+                    {/* Difficulty Level Column */}
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-sm font-semibold text-gray-700"
+                    >
+                      Difficulty Level
+                    </th>
+
+                    {/* Time Column */}
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-sm font-semibold text-gray-700"
+                    >
+                      Time
+                    </th>
+
+                    {/* Action Column */}
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-sm font-semibold text-gray-700"
+                    >
+                      Action
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredInterviews.map((interview) => (
+                    <tr key={interview.interview_id}>
+                      {/* Name Cell */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
                           {interview.candidate_name}
-                          <br />
+                        </div>
+                        <div className="text-sm text-gray-500">
                           {interview.candidate_contact}
-                          <br />
+                        </div>
+                        <div className="text-sm text-gray-500">
                           {interview.candidate_email}
-                        </td>
-                        <td className="px-4 py-4 text-sm font-medium text-black-700 whitespace-nowrap">
-                          <div className="inline-flex items-center gap-x-3">
-                            <div className="flex items-center gap-x-2">
-                              <FcGoogle className="object-cover w-10 h-10 rounded-full" />
-                              <div>
-                                <h2 className="font-bold text-black-800 dark:text-black ">
-                                  {interview.company_name}
-                                </h2>
-                                <p>{interview.company_email}</p>
-                              </div>
+                        </div>
+                      </td>
+
+                      {/* Company Cell */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <img
+                            src={`http://localhost:5000${interview.company_icon}`}
+                            className="object-cover w-10 h-10 rounded-full mr-3"
+                            alt={interview.company_name}
+                          />
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {interview.company_name}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {interview.company_email}
                             </div>
                           </div>
-                        </td>
-                        <td className="px-12 py-4 text-sm font-medium text-gray-700 whitespace-nowrap">
-                          <div className="inline-flex items-center">
-                            <h2 className="text-sm font-bold text-black-800">
-                              {interview.datetime
-                                ? new Date(interview.datetime).toLocaleString()
-                                : "TBD"}
-                            </h2>
-                          </div>
-                        </td>
-                        <td className="px-4 py-4 text-sm whitespace-nowrap">
-                          {getStatusButton(
-                            interview.status_description,
-                            interview.interview_id,
-                            interview.datetime
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                        </div>
+                      </td>
+
+                      {/* Role Cell */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {/* Removed the blue box for Role */}
+                        <span className="text-sm font-semibold">
+                          {interview.role.charAt(0).toUpperCase() + interview.role.slice(1)}
+                        </span>
+                      </td>
+
+                      {/* Difficulty Level Cell */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {/* Kept the colored box for Difficulty Level */}
+                        <span className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${
+                          interview.difficulty_level.toLowerCase() === 'easy' ? 'bg-green-100 text-green-800' :
+                          interview.difficulty_level.toLowerCase() === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {interview.difficulty_level.charAt(0).toUpperCase() + interview.difficulty_level.slice(1)}
+                        </span>
+                      </td>
+
+                      {/* Time Cell */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {interview.datetime ? formatToIST(interview.datetime) : "TBD"}
+                        </div>
+                      </td>
+
+                      {/* Action Cell */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                      {getStatusButton(interview)}
+
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredInterviews.length === 0 && (
+                    <tr>
+                      <td colSpan="6" className="px-6 py-4 text-center text-gray-500">
+                        No interviews found.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

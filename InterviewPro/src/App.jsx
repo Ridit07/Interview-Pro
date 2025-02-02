@@ -29,6 +29,8 @@ import AboutUs from './pages/aboutus';
 import ContactUs from './pages/contactus';
 import VideoCall2 from './components/VideoCall2';
 import Candilogin from './components/Candilogin2';
+import RatingPage from './components/RatingPage';
+import CheckATS from './components/CheckATS';
 function App() {
   return (
     <>
@@ -65,6 +67,9 @@ function App() {
           <Route path='/video2' element={<VideoCall2/>}/>
           <Route path="/login" element={<LoginPage/>} />
           <Route path='/condilogin' element={<Candilogin/>}/>
+          <Route path="/rating" element={<RatingPage />} />
+          <Route path="/checkats" element={<CheckATS />} />
+         
         </Routes>
       </Router>
     </>

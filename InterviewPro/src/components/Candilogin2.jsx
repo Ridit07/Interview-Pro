@@ -14,17 +14,21 @@ function Login() {
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post("http://localhost:5000/api/candidate_login", {
-        email,
-        password,
-      });
+      const response = await axios.post(
+        "http://localhost:5001/api/candidate_login",
+        { email, password },
+        { withCredentials: true } // Enable credentials
+      );
       if (response.status === 200) {
-        navigate("/dashboard2");
+        localStorage.setItem("candidate_name", response.data.candidate_name); // Save the candidate name to localStorage
+        navigate("/dashboard2"); // Redirect to dashboard
       }
     } catch (error) {
       setError("Invalid email or password");
     }
   };
+  
+
 
   return (
     <section className="bg-white">

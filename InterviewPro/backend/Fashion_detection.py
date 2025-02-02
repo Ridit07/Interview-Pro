@@ -5,7 +5,8 @@ import torch
 from torchvision.transforms import ToPILImage, ToTensor
 from PIL import Image, ImageDraw
 import lightning as pl
-
+import matplotlib.pyplot as plt
+import os
 
 class Yolos(pl.LightningModule):
     
@@ -108,7 +109,7 @@ feature_extractor = YolosFeatureExtractor.from_pretrained('hustvl/yolos-small')
 
 # Load the model from a checkpoint, setting the learning rate and weight decay
 model_tags = Yolos.load_from_checkpoint(
-    checkpoint_path='/Users/riditjain/Downloads/fashion_model.ckpt',  # Path to the checkpoint
+    checkpoint_path='/Users/riditjain/Downloads/Interview-Pro-main/InterviewPro/backend/models/fashion_model.ckpt',  # Path to the checkpoint
     lr=2.5e-5,  # Learning rate for fine-tuning
     weight_decay=1e-4  # Weight decay for regularization
 )
@@ -173,7 +174,7 @@ color_mapping = {
 import matplotlib.pyplot as plt
 
 
-def plot_results(pil_img, prob, boxes, show_image=True):
+def plot_results(pil_img, prob, boxes, output_path=None, show_image=True):
     if show_image:
         plt.figure(figsize=(16, 10))
         plt.imshow(pil_img)
@@ -188,49 +189,50 @@ def plot_results(pil_img, prob, boxes, show_image=True):
 
         if show_image:
             ax.add_patch(plt.Rectangle((xmin, ymin), xmax - xmin, ymax - ymin,
-                                       fill=False, color=color, linewidth=1))
+                                       fill=False, color=color, linewidth=2))
 
             # Determine the label position based on the category
             if group in ['Accessories', 'Clothing Details', 'Embellishments']:
-                label_x = xmax  # Position the label in the lower right corner of the bounding box
-                label_y = ymax  # Position the label in the lower right corner of the bounding box
+                label_x = xmax
+                label_y = ymax
                 ha = 'right'
                 va = 'bottom'
             else:
-                label_x = xmin  # Position the label in the upper left corner of the bounding box
-                label_y = ymin  # Position the label in the upper left corner of the bounding box
+                label_x = xmin
+                label_y = ymin
                 ha = 'left'
                 va = 'top'
 
-            ax.text(label_x, label_y, category, fontsize=8, ha=ha, va=va,
+            ax.text(label_x, label_y, category, fontsize=10, ha=ha, va=va,
                     bbox=dict(facecolor=color, alpha=0.8, pad=0.2))
 
         if group not in unique_categories:
             unique_categories[group] = set()
         unique_categories[group].add(category)
 
-    if show_image:
+    if show_image and output_path:
+        plt.axis('off')
+        plt.savefig(output_path, bbox_inches='tight')
+        plt.close()
+    elif show_image:
         plt.axis('off')
         plt.show()
 
     for group, categories in unique_categories.items():
-        # Convert categories to a list with '/' separator, then join them
         detected = ', '.join([', '.join(word.split(', ')).replace(', ', '/') for word in categories])
-
-        # Print group and corresponding category string
         print(f"{group}: {detected}")
     print("\n\n")
 
-def visualize_predictions(image, outputs, threshold=0.7, show_image=True):
-    # keep only predictions with confidence >= threshold
+# Modify visualize_predictions to accept output_path
+def visualize_predictions(image, outputs, threshold=0.7, output_path=None, show_image=True):
     probas = outputs.logits.softmax(-1)[0, :, :-1]
     keep = probas.max(-1).values > threshold
 
-    # convert predicted boxes from [0; 1] to image scales
     bboxes_scaled = rescale_bboxes(outputs.pred_boxes[0, keep].cpu(), image.size)
 
-    # plot results
-    plot_results(image, probas[keep], bboxes_scaled, show_image)
+    plot_results(image, probas[keep], bboxes_scaled, output_path=output_path, show_image=show_image)
+
+
     
     
 def fix_channels(t):
@@ -243,27 +245,32 @@ def fix_channels(t):
     return ToPILImage()(t)
 
 
-def process_image(IMAGE_PATH, threshold=0.7, show_image=True):
-    print(IMAGE_PATH)
-
-    image = Image.open(open(IMAGE_PATH, "rb"))
+def process_image(IMAGE_PATH, threshold=0.7, output_path=None):
+    print(f"Processing image: {IMAGE_PATH}")
+    
+    image = Image.open(IMAGE_PATH).convert("RGB")
     image = fix_channels(ToTensor()(image))
     image = image.resize((600, 800))
     
     inputs = feature_extractor(images=image, return_tensors="pt")
     outputs = model_tags(**inputs)
     
-    img = visualize_predictions(image, outputs, threshold, show_image)
+    # Run prediction and save the plot
+    visualize_predictions(image, outputs, threshold, output_path=output_path, show_image=True)
+    
+    return image
 
-    return img
+# Modify process_images to handle multiple images with output paths
+def process_images(image_paths, output_dir, threshold=0.7):
+    os.makedirs(output_dir, exist_ok=True)
+    output_paths = []
 
-def process_images(image_paths, threshold=0.7, show_image=True):
-    results = []
-    for image_path in image_paths:
-        result = process_image(image_path, threshold, show_image)
-        results.append(result)
-    return results
+    for idx, image_path in enumerate(image_paths):
+        output_path = os.path.join(output_dir, f"processed_image_{idx+1}.png")
+        process_image(image_path, threshold, output_path=output_path)
+        output_paths.append(output_path)
+    return output_paths
 
 # Single image, show_image=True
-#IMAGE_PATH = ["/Users/riditjain/Downloads/IMG_5731.jpg"]
+#IMAGE_PATH = ["/Users/riditjain/Downloads/akj_pic.jpeg"]
 #process_images(IMAGE_PATH, threshold=0.8, show_image=True)

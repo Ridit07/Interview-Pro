@@ -1,0 +1,15 @@
+/* src/components/CheckATS.css */
+
+.container {
+    max-width: 1200px;
+  }
+  
+  h1, h2 {
+    color: #333;
+  }
+  
+  pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+  

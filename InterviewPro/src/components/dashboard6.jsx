@@ -1,27 +1,52 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import "./dashboard.css";
-import { Link } from "react-router-dom";
 import Popup from "reactjs-popup";
 import "reactjs-popup/dist/index.css";
-import ReqInterview1 from "./reqInterview1";
+import { FaChevronDown, FaSort, FaSortUp, FaSortDown } from "react-icons/fa"; 
+import ReqInterview1 from './ReqInterview1';
+import { Link , useNavigate} from "react-router-dom"; 
+import logo from '/Users/riditjain/Downloads/Interview-Pro-main/InterviewPro/src/assets/logo.png';
+import axios from 'axios';
 
 function Dashboard6() {
+  const navigate = useNavigate(); 
+
+  const [loading, setLoading] = useState(false);
+
   const [organisationName, setOrganisationName] = useState("");
   const [organisationEmail, setOrganisationEmail] = useState("");
+  const [organisationIcon, setOrganisationIcon] = useState("");
+
   const [organisationContact, setOrganisationContact] = useState("");
   const [dashboardData, setDashboardData] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
   const [error, setError] = useState(null);
-  const [searchQuery, setSearchQuery] = useState("");
+  
+  // Search States
+  const [candidateSearch, setCandidateSearch] = useState("");
+  const [interviewerSearch, setInterviewerSearch] = useState("");
+  const [companyFilter, setCompanyFilter] = useState("all");
+  
+  // Filter Type State
+  const [filterType, setFilterType] = useState("all"); // all, current, completed
+  
+  // Sort States
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+
+  // Rubric States
+  const [rubricData, setRubricData] = useState({}); // State to hold rubric data for multiple RubricIDs
+  const [visibleRubric, setVisibleRubric] = useState(null); // Track visible rubric
+
+  const defaultImage = "https://via.placeholder.com/150";
+  const backendBaseUrl = "http://localhost:5000";
+  const rubricBoxRef = useRef(null); // Reference for rubric box
 
   useEffect(() => {
-    const storedOrganisationName = localStorage.getItem("organisation_name");
-    const storedOrganisationEmail = localStorage.getItem("organisation_email");
-    const storedOrganisationContact = localStorage.getItem("organisation_contact");
+    const orgName = localStorage.getItem("organisation_name");
+    const orgIcon = localStorage.getItem("organisation_icon");
 
-    if (storedOrganisationName) setOrganisationName(storedOrganisationName);
-    if (storedOrganisationEmail) setOrganisationEmail(storedOrganisationEmail);
-    if (storedOrganisationContact) setOrganisationContact(storedOrganisationContact);
+    if (orgName) setOrganisationName(orgName);
+    if (orgIcon) setOrganisationIcon(`${backendBaseUrl}/static${orgIcon}`);
 
     fetch("http://localhost:5000/api/get_dashboard_data", {
       credentials: 'include',
@@ -31,19 +56,8 @@ function Dashboard6() {
         'Pragma': 'no-cache'
       }
     })
-      .then((response) => {
-        console.log("Response status:", response.status);
-        console.log("Response headers:", response.headers);
-        return response.text().then(text => {
-          console.log("Response body:", text);
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-          return JSON.parse(text);
-        });
-      })
+      .then((response) => response.json())
       .then((data) => {
-        console.log("Fetched data:", data);
         if (data.error) {
           setError(data.error);
         } else {
@@ -57,179 +71,515 @@ function Dashboard6() {
       });
   }, []);
 
-  const handleSearch = (e) => {
-    const query = e.target.value.toLowerCase();
-    setSearchQuery(query);
-    const filtered = dashboardData.filter(item => item.candidate_name.toLowerCase().includes(query));
+  useEffect(() => {
+    // Event listener to close the rubric box if clicked outside
+    const handleClickOutside = (event) => {
+      if (rubricBoxRef.current && !rubricBoxRef.current.contains(event.target)) {
+        setVisibleRubric(null); // Close rubric when clicked outside
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  const handleCheckATS = async (jdPath, resumePath) => {
+    setLoading(true); 
+
+    try {
+      // Send JD_Path and ResumePath to the backend
+      await axios.post('http://localhost:5006/api/copy-files', {
+        jdPath: jdPath,
+        resumePath: resumePath,
+      });
+      sessionStorage.setItem("jdPath", jdPath);
+      sessionStorage.setItem("resumePath", resumePath);
+  
+      navigate("/checkats");
+    } catch (error) {
+      console.error("Error in Check ATS process:", error);
+    } finally {
+      setLoading(false); 
+    }
+  };
+
+
+  useEffect(() => {
+    // Filter and sort data based on search, filter, and sort criteria
+    let filtered = [...dashboardData];
+  
+    // Filter Type
+    if (filterType === "current") {
+      // Current status includes status_description "1" to "5"
+      filtered = filtered.filter(item => ["0","1", "2", "3", "4", "5"].includes(item.status_description));
+    } else if (filterType === "completed") {
+      // Completed status includes only status_description "6"
+      filtered = filtered.filter(item => item.status_description === "6");
+    }
+    // For 'all', we do not filter by status_description
+  
+    // Search by Candidate Name
+    if (candidateSearch) {
+      filtered = filtered.filter(item =>
+        item.candidate_name.toLowerCase().includes(candidateSearch.toLowerCase())
+      );
+    }
+  
+    // Search by Interviewer Name
+    if (interviewerSearch) {
+      filtered = filtered.filter(item =>
+        item.interviewer_name.toLowerCase().includes(interviewerSearch.toLowerCase())
+      );
+    }
+  
+    // Filter by Company Name
+    if (companyFilter !== "all") {
+      filtered = filtered.filter(item => item.company_name.toLowerCase() === companyFilter.toLowerCase());
+    }
+  
+    // Sort Data
+    if (sortConfig.key) {
+      filtered.sort((a, b) => {
+        if (sortConfig.key === "price") {
+          return sortConfig.direction === "asc" ? a.price - b.price : b.price - a.price;
+        } else {
+          const dateA = new Date(a.datetime);
+          const dateB = new Date(b.datetime);
+          return sortConfig.direction === "asc" ? dateA - dateB : dateB - dateA;
+        }
+      });
+    }
+  
     setFilteredData(filtered);
+  }, [candidateSearch, interviewerSearch, companyFilter, filterType, sortConfig, dashboardData]);
+  
+
+  const downloadReport = (InterviewID) => {
+    fetch(`http://localhost:5000/api/download_report/${InterviewID}`, {
+      method: "GET",
+      credentials: "include",
+    })
+      .then((response) => {
+        if (response.ok) {
+          return response.blob();
+        }
+        throw new Error("Report not found");
+      })
+      .then((blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `interviewer_report_${InterviewID}.pdf`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+      })
+      .catch((error) => console.error("Error downloading report:", error));
+  };
+  
+  const downloadAiReport = (InterviewID) => {
+    fetch(`http://localhost:5000/api/download_ai_report/${InterviewID}`, {
+      method: "GET",
+      credentials: "include",
+    })
+      .then((response) => {
+        if (response.ok) {
+          return response.blob();
+        }
+        throw new Error("AI Report not found");
+      })
+      .then((blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `ailogfile_${InterviewID}.docx`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+      })
+      .catch((error) => console.error("Error downloading AI report:", error));
+  };
+  
+
+  const getStatusText = (statusDescription, InterviewID) => {
+    if (statusDescription === "0") {
+      return <span className="text-green-500 font-bold">Confirmed</span>;
+    } else if (statusDescription === "1") {
+      return <span className="text-blue-500 font-bold">Fixed</span>;
+    } else if (statusDescription === "-1") {
+      return <span className="text-red-500 font-bold">Rejected</span>;
+    } else if (["2", "3", "4", "5"].includes(statusDescription)) {
+      return <span className="text-yellow-500 font-bold">In Progress</span>;
+    } else if (statusDescription === "6") {
+      return (
+        <div className="flex flex-col space-y-2"> {/* Use flex-col and space-y-2 for line break */}
+          <button
+            onClick={() => downloadReport(InterviewID)}
+            className="px-3 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors"
+          >
+            Download Report<br></br>(Domain name is the password)
+          </button>
+          <button
+            onClick={() => downloadAiReport(InterviewID)}
+            className="px-3 py-1 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+          >
+            Download AI Report
+          </button>
+        </div>
+      );
+    }
+  };
+  
+
+  const getInterviewerPhoto = (picPath) => {
+    return picPath ? `${backendBaseUrl}/static${picPath}` : defaultImage;
+  };
+
+  // Function to fetch rubric data for a specific RubricID and store it in the state
+  const fetchRubricData = (rubricId) => {
+    if (!rubricId) {
+      console.error("RubricID is undefined");
+      return;
+    }
+
+    // If rubric data already fetched, just toggle visibility
+    if (rubricData[rubricId]) {
+      setVisibleRubric(visibleRubric === rubricId ? null : rubricId);
+      return;
+    }
+
+    fetch(`http://localhost:5000/api/get_rubric_data?RubricID=${rubricId}`, {
+      credentials: 'include',
+      method: 'GET',
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.error) {
+          console.error("Error fetching rubric data:", data.error);
+        } else {
+          // Store rubric data in state using RubricID as key
+          setRubricData((prevData) => ({
+            ...prevData,
+            [rubricId]: data  // Update rubric data for the specific RubricID
+          }));
+          setVisibleRubric(rubricId); // Set visible rubric
+        }
+      })
+      .catch((error) => console.error("Error fetching rubric data:", error));
+  };
+
+  // Function to handle sorting
+  const handleSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  // Get unique company names for the dropdown
+  const getUniqueCompanies = () => {
+    const companies = dashboardData.map(item => item.company_name);
+    return ["all", ...Array.from(new Set(companies))];
   };
 
   return (
     <>
-      <nav className="relative bg-white shadow dark:bg-white">
-        <div className="h-[10vh] p-2">
-          <div className="flex flex-col md:flex-row justify-between md:items-center">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <a href="#">
-                  <h2 className="ml-[1rem] font-bold text-black text-xl">
-                    Dashboard
-                  </h2>
-                </a>
-                <div className="mx-10 md:block">
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 flex items-center pl-3">
-                      <svg className="w-5 h-5 text-gray-400" viewBox="0 0 24 24" fill="none">
-                        <path d="M21 21L15 15M17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path>
-                      </svg>
-                    </span>
-                    <input
-                      type="text"
-                      className="w-full py-2 pl-10 pr-4 text-gray-700 bg-white border rounded-md dark:bg-white-800 dark:text-gray-300 dark:border-gray-600 focus:border-blue-400 dark:focus:border-blue-300 focus:outline-none focus:ring focus:ring-opacity-40 focus:ring-blue-300"
-                      placeholder="Search"
-                      value={searchQuery}
-                      onChange={handleSearch}
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className="flex lg:hidden">
-                <button type="button" className="text-gray-500 dark:text-gray-200 hover:text-gray-600 dark:hover:text-gray-400 focus:outline-none focus:text-gray-600 dark:focus:text-gray-400" aria-label="toggle menu">
-                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 8h16M4 16h16" />
-                  </svg>
-                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
+      {/* Header Section */}
+      <nav className="bg-white shadow">
+        <div className="px-4 sm:px-6 lg:px-8">
+          <div className="h-[10vh] flex justify-between items-center">
+            {/* Logo */}
+            <div>
+              <Link to="/home">
+              <img 
+  src={logo} 
+  alt="Logo" 
+  className="w-24 h-24 object-contain cursor-pointer" />
+
+              </Link>
             </div>
-            <div className="flex items-center gap-x-2">
-              <div>
-                <h1 className="text-xl font-semibold text-black-800 capitalize dark:text-black-800">
-                  Hi, {organisationName}!
-                </h1>
-              </div>
-              <img className="object-cover w-16 h-16 rounded-full" src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=facearea&facepad=3&w=688&h=688&q=100" alt="" />
+            {/* Organisation Info */}
+            <div className="flex items-center gap-x-4">
+              <h1 className="text-xl font-semibold text-gray-800 capitalize">
+                Hi, {organisationName}!
+              </h1>
+              <img
+                className="object-cover w-16 h-16 rounded-full border-2 border-gray-300"
+                src={organisationIcon || defaultImage}
+                alt="Organisation"
+              />
             </div>
           </div>
         </div>
       </nav>
-      <div className="space-y-6">
-        <div className="mt-6 ml-6 flex items-center gap-x-2">
-          <img className="object-cover w-16 h-16 rounded" src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=facearea&facepad=3&w=688&h=688&q=100" alt="" />
-          <div>
-            <h1 className="text-xl font-semibold text-black-800 capitalize dark:text-black-800">
-              Hi, Ridit!
-            </h1>
+
+      {/* Filter Type Section */}
+      <div className="bg-gray-100 py-4">
+        <div className="px-4 sm:px-6 lg:px-8">
+          <div className="flex space-x-4 justify-start">
+            <button
+              className={`px-4 py-2 border border-gray-300 rounded ${
+                filterType === "all" ? "bg-blue-500 text-white" : "bg-white text-gray-700 hover:bg-gray-200"
+              }`}
+              onClick={() => setFilterType("all")}
+            >
+              All
+            </button>
+            <button
+              className={`px-4 py-2 border border-gray-300 rounded ${
+                filterType === "current" ? "bg-blue-500 text-white" : "bg-white text-gray-700 hover:bg-gray-200"
+              }`}
+              onClick={() => setFilterType("current")}
+            >
+              Current
+            </button>
+            <button
+              className={`px-4 py-2 border border-gray-300 rounded ${
+                filterType === "completed" ? "bg-blue-500 text-white" : "bg-white text-gray-700 hover:bg-gray-200"
+              }`}
+              onClick={() => setFilterType("completed")}
+            >
+              Completed
+            </button>
           </div>
         </div>
-        <div>
-          <h1 className="mb-4 p-4 text-xl font-semibold text-black-800 bg-[#F2F2F7] capitalize dark:text-black-800">
-            Requests | <span className="text-gray-500"><Link to="/dashboard4" className="hover:text-black">Reports</Link></span>
-          </h1>
-        </div>
       </div>
-      <section className="overflow-y-auto">
-        <div className="flex flex-col mt-6">
-          <div className="inline-block min-w-full py-2 align-middle md:px-6 lg:px-8">
-            <div className="overflow-hidden">
-              {error ? (
-                <div className="text-red-500">{error}</div>
-              ) : (
-                <table className="min-w-full divide-y divide-gray-200 dark:divide-black-800">
-                  <thead className="bg-white-50 dark:bg-white-800">
-                    <tr>
-                      <th scope="col" className="py-3.5 px-4 text-sm font-normal text-left rtl:text-right text-gray-500 dark:text-gray-400">
-                        <div className="flex items-center gap-x-3 ml-[4rem]">
-                          <span>Candidate Name</span>
-                        </div>
-                      </th>
-                      <th scope="col" className="px-4 py-3.5 text-sm font-normal text-left rtl:text-right text-gray-500 dark:text-gray-400">
-                        <button className="flex items-center gap-x-2">
-                          <span>Interviewer Name</span>
-                        </button>
-                      </th>
-                      <th scope="col" className="px-4 py-3.5 text-sm font-normal text-left rtl:text-right text-gray-500 dark:text-gray-400">
-                        <button className="flex items-center gap-x-2">
-                          <span>Company Name</span>
-                        </button>
-                      </th>
-                      <th scope="col" className="px-12 py-3.5 text-sm font-normal text-left rtl:text-right text-gray-500 dark:text-gray-400">
-                        <button className="flex items-center gap-x-2">
-                          <span>Date and Time</span>
-                        </button>
-                      </th>
-                      <th scope="col" className="px-4 py-3.5 text-sm font-normal text-left rtl:text-right text-gray-500 dark:text-gray-400">
-                        <button className="flex items-center gap-x-2">
-                          <span>Price</span>
-                        </button>
-                      </th>
-                      <th scope="col" className="px-4 py-3.5 text-sm font-normal text-left rtl:text-right text-gray-500 dark:text-gray-400">
-                        <button className="flex items-center gap-x-2">
-                          <span>Status Description</span>
-                        </button>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200 dark:divide-gray-300 dark:bg-white-900">
-                    {filteredData.map((item, index) => (
-                      <tr key={index}>
-                        <td className="px-4 py-4 text-sm font-medium text-black-700 whitespace-nowrap">
-                          <div className="inline-flex items-center gap-x-3">
-                            <div className="flex items-center gap-x-2">
-                              <div>
-                                <h2 className="font-bold text-black-800 dark:text-black ml-[4rem]">
-                                  {item.candidate_name}
-                                </h2>
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-4 text-sm font-medium text-gray-700 whitespace-nowrap">
-                          <div className="inline-flex items-center">
-                            <h2 className="text-sm font-bold text-black-800">
-                              {item.interviewer_name}
-                            </h2>
-                          </div>
-                        </td>
-                        <td className="px-4 py-4 text-sm font-medium text-gray-700 whitespace-nowrap">
-                          <div className="inline-flex items-center">
-                            <h2 className="text-sm font-bold text-black-800">
-                              {item.company_name}
-                            </h2>
-                          </div>
-                        </td>
-                        <td className="px-12 py-4 text-sm font-medium text-gray-700 whitespace-nowrap">
-                          <div className="inline-flex items-center">
-                            <h2 className="text-sm font-bold text-black-800">
-                              {item.datetime}
-                            </h2>
-                          </div>
-                        </td>
-                        <td className="font-bold px-4 py-4 text-sm text-red-500 dark:text-red-600 whitespace-nowrap">
-                          {item.price}
-                        </td>
-                        <td className="px-4 py-4 text-sm whitespace-nowrap">
-                          <div>
-                            <h4 className="font-bold text-gray-700 dark:text-black">
-                              {item.status_description}
-                            </h4>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
+
+      {/* Search and Filter Section */}
+      <section className="bg-gray-100 py-6">
+        <div className="px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            {/* Search Inputs */}
+            <div className="flex flex-col md:flex-row gap-4 w-full">
+              <input
+                type="text"
+                placeholder="Search by Candidate Name"
+                className="flex-1 py-2 px-4 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={candidateSearch}
+                onChange={(e) => setCandidateSearch(e.target.value)}
+              />
+              <input
+                type="text"
+                placeholder="Search by Interviewer Name"
+                className="flex-1 py-2 px-4 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={interviewerSearch}
+                onChange={(e) => setInterviewerSearch(e.target.value)}
+              />
+            </div>
+
+            {/* Company Dropdown and Sort Buttons */}
+            <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+              {/* Company Dropdown */}
+              <div className="relative inline-block text-left">
+                <select
+                  value={companyFilter}
+                  onChange={(e) => setCompanyFilter(e.target.value)}
+                  className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-lg"
+                >
+                  {getUniqueCompanies().map((company, index) => (
+                    <option key={index} value={company}>
+                      {company.charAt(0).toUpperCase() + company.slice(1)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Sort by Date and Time */}
+              <button
+                className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onClick={() => handleSort("datetime")}
+              >
+                Sort by Date & Time
+                {sortConfig.key === "datetime" ? (
+                  sortConfig.direction === "asc" ? <FaSortUp className="ml-2" /> : <FaSortDown className="ml-2" />
+                ) : (
+                  <FaSort className="ml-2" />
+                )}
+              </button>
+
+              {/* Sort by Price */}
+              <button
+                className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onClick={() => handleSort("price")}
+              >
+                Sort by Price
+                {sortConfig.key === "price" ? (
+                  sortConfig.direction === "asc" ? <FaSortUp className="ml-2" /> : <FaSortDown className="ml-2" />
+                ) : (
+                  <FaSort className="ml-2" />
+                )}
+              </button>
             </div>
           </div>
         </div>
       </section>
-      <div className="fixed bottom-0 right-0 p-4">
+
+      {/* Interviews Table Section */}
+      <section className="bg-white py-6">
+        <div className="px-4 sm:px-6 lg:px-8">
+          <div className="overflow-auto" style={{ maxHeight: '60vh' }}>
+            {error ? (
+              <div className="text-red-500">{error}</div>
+            ) : (
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50 sticky top-0 z-10">
+                  <tr>
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-sm font-semibold text-gray-700"
+                    >
+                      Candidate Name
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-sm font-semibold text-gray-700"
+                    >
+                      Interviewer Name
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-sm font-semibold text-gray-700"
+                    >
+                      Company Name
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-sm font-semibold text-gray-700"
+                    >
+                      Date & Time
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-sm font-semibold text-gray-700"
+                    >
+                      Price
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-sm font-semibold text-gray-700"
+                    >
+                      Status
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-sm font-semibold text-gray-700"
+                    >
+                      Rubrics
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredData.map((item, index) => (
+                    <tr key={index}>
+                      {/* Candidate Name */}
+                      <td className="px-6 py-4 text-sm text-gray-700 whitespace-nowrap">
+                        <div className="flex flex-col">
+                          <span className="font-medium text-gray-900">{item.candidate_name}</span>
+                          <span className="text-gray-500">{item.candidate_email}</span>
+                          <span className="text-gray-500">{item.candidate_contact}</span>
+                        </div>
+                      </td>
+
+                      {/* Interviewer Name */}
+                      <td className="px-6 py-4 text-sm text-gray-700 whitespace-nowrap">
+                        <div className="flex items-center gap-x-3">
+                          <img
+                            src={getInterviewerPhoto(item.interviewer_picpath)}
+                            alt={item.interviewer_name}
+                            className="object-cover w-10 h-10 rounded-full"
+                          />
+                          <div className="flex flex-col">
+                            <span className="font-medium text-gray-900">{item.interviewer_name}</span>
+                            <span className="text-gray-500">{item.interviewer_email}</span>
+                            <span className="text-gray-500">{item.interviewer_contact}</span>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Company Name */}
+                      <td className="px-6 py-4 text-sm text-gray-700 whitespace-nowrap">
+                        <span className="font-medium text-gray-900">{item.company_name}</span>
+                      </td>
+
+                      {/* Date & Time */}
+                      <td className="px-6 py-4 text-sm text-gray-700 whitespace-nowrap">
+                        <span>{new Date(item.datetime).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}</span>
+                      </td>
+
+                      {/* Price */}
+                      <td className="px-6 py-4 text-sm font-semibold text-red-500 whitespace-nowrap">
+                        ₹{item.price}
+                      </td>
+
+                      {/* Status */}
+                      <td className="px-6 py-4 text-sm whitespace-nowrap">
+                      {getStatusText(item.status_description, item.InterviewID)}
+                      </td>
+
+                      {/* Rubrics */}
+                      <td className="px-6 py-4 text-sm whitespace-nowrap relative">
+                        {/* Wrapping button and div in a fragment to avoid adjacent JSX elements error */}
+                        <>
+                          <button
+                            onClick={() => fetchRubricData(item.RubricID)}
+                            className="flex items-center text-blue-600 hover:text-blue-900 focus:outline-none"
+                          >
+                            <FaChevronDown className="mr-2" />
+                            View Rubrics
+                          </button>
+                          {visibleRubric === item.RubricID && rubricData[item.RubricID] && (
+                            <div
+                              ref={rubricBoxRef}
+                              className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 shadow-lg rounded-lg p-4 z-20"
+                            >
+                              <h3 className="text-lg font-semibold mb-2">Rubric Details</h3>
+                              <p><strong>Experience:</strong> {rubricData[item.RubricID].Experience}</p>
+                              <p><strong>Difficulty Level:</strong> {rubricData[item.RubricID].DifficultyLevel}</p>
+                              <p><strong>Notes:</strong> {rubricData[item.RubricID].Notes}</p>
+                              <p><strong>Selected Skills:</strong> {rubricData[item.RubricID].SelectedSkills}</p>
+                              <p><strong>Role:</strong> {rubricData[item.RubricID].Role}</p>
+
+                   {/* Check ATS Button - displayed only if both item.JD_Path and item.ResumePath are available */}
+              {item.JD_Path && item.ResumePath && (
+                <button
+                onClick={() => handleCheckATS(item.JD_Path, item.ResumePath)}
+                className="mt-4 px-3 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
+                disabled={loading} // Disable button when loading
+              >
+                {loading ? (
+                  <span className="loader"></span> // Show loading spinner
+                ) : (
+                  "Check ATS"
+                )}
+              </button>
+              )}
+
+                            </div>
+                          )}
+                        </>
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredData.length === 0 && (
+                    <tr>
+                      <td colSpan="7" className="px-6 py-4 text-center text-gray-500">
+                        No interviews found.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* Request Interview Button */}
+      <div className="fixed bottom-4 right-4">
         <Popup
           trigger={
-            <button className="px-12 py-3 font-medium tracking-wide text-large text-white capitalize transition-colors duration-300 transform bg-[#191064] rounded-full hover:bg-gray-500 focus:outline-none focus:ring focus:ring-blue-300 focus:ring-opacity-80">
+            <button className="px-6 py-3 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500">
               Request Interview
             </button>
           }
@@ -237,10 +587,13 @@ function Dashboard6() {
           nested
         >
           {(close) => (
-            <div className="modal">
+            <div className="modal bg-white p-6 rounded-lg shadow-lg">
               <ReqInterview1 />
-              <div>
-                <button onClick={() => close()} className="bg-[#191064] rounded-lg text-white px-12 py-3">
+              <div className="mt-4">
+                <button
+                  onClick={() => close()}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
                   Close
                 </button>
               </div>

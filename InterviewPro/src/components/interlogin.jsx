@@ -4,46 +4,47 @@ import linkedin from "../assets/linkedin.png";
 import abstraction from "../assets/Abstraction.png";
 import logo from "../assets/logo.png";
 
+function Interlogin() {
+  const navigate = useNavigate();
+  const [errorMessage, setErrorMessage] = useState("");
 
-function Interlogin(){
-    const navigate = useNavigate();
-    const [errorMessage, setErrorMessage] = useState("");
-  
-    const handleLogin = async (event) => {
-      event.preventDefault();
-      const formData = new FormData(event.target);
-      const data = {
-        email: formData.get('email'),
-        password: formData.get('password_confirmation')
-      };
-  
-      try {
-        const response = await fetch('http://localhost:5000/api/interviewer_login', {
-          credentials: 'include',
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(data)
-        });
-  
-        const jsonData = await response.json();
-        if (response.ok) {
-          localStorage.setItem("interviewer_id", jsonData.interviewer_id);
-          localStorage.setItem("interviewer_name", jsonData.interviewer_name);
-          localStorage.setItem("interviewer_email", jsonData.interviewer_email);
-          localStorage.setItem("interviewer_company", jsonData.interviewer_company);
-  
-          navigate("/dashboard4");
-        } else {
-          console.error('Login Failed:', jsonData.error);
-          setErrorMessage("Wrong email or password. Please try again.");
-        }
-      } catch (error) {
-        console.error('Network Error:', error);
-        setErrorMessage("Network error. Please try again later.");
-      }
+  const handleLogin = async (event) => {
+    event.preventDefault();
+    const formData = new FormData(event.target);
+    const data = {
+      email: formData.get("email"),
+      password: formData.get("password_confirmation"),
     };
+
+    try {
+      const response = await fetch("http://localhost:5000/api/interviewer_login", {
+        credentials: "include",
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+
+      const jsonData = await response.json();
+      if (response.ok) {
+        // Save the interviewer data in sessionStorage
+        sessionStorage.setItem("interviewer_id", jsonData.interviewer_id);
+        sessionStorage.setItem("interviewer_name", jsonData.interviewer_name);
+        sessionStorage.setItem("interviewer_email", jsonData.interviewer_email);
+        sessionStorage.setItem("interviewer_picpath", jsonData.interviewer_picpath); // Save pic path
+
+        navigate("/dashboard4");
+      } else {
+        console.error("Login Failed:", jsonData.error);
+        setErrorMessage("Wrong email or password. Please try again.");
+      }
+    } catch (error) {
+      console.error("Network Error:", error);
+      setErrorMessage("Network error. Please try again later.");
+    }
+  };
+
 
 
 
