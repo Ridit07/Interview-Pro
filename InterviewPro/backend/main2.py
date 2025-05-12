@@ -21,14 +21,13 @@ from gaze_final import analyze_gaze_in_video
 from flask import Flask, request, jsonify
 import os
 import pickle
-from toxic import load_model,preprocess # Import from your toxicity detection code
+from toxic import load_model,preprocess 
 import pandas as pd
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 
 
 app = Flask(__name__)
 
-# Initialize the Whisper model and other settings
 model_id = "openai/whisper-large-v3"
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
 torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
@@ -91,21 +90,17 @@ def generate_report():
     video_clip = VideoFileClip(video_path)
     audio_clip = video_clip.audio
     audio_clip.write_audiofile(audio_path, codec='mp3')
-    video_duration = video_clip.duration  # Total duration of the video in seconds
+    video_duration = video_clip.duration 
 
-    # Transcribe audio
     result = pipe(audio_path)
     transcribed_text = result['text']
 
-    # Send transcription to NLP server
     nlp_response = requests.post("http://127.0.0.1:5002/analyze", json={"text": transcribed_text})
 
-    # Initialize Word document
     doc = Document()
     doc.add_heading('Translated Text', level=1)
     doc.add_paragraph(transcribed_text)
 
-    # Face Detection and Tracking Setup
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     mtcnn = MTCNN(keep_all=True, device=device)
     resnet = InceptionResnetV1(pretrained='vggface2').eval().to(device)
@@ -118,7 +113,7 @@ def generate_report():
     person1_last_seen = None
     person1_out_of_frame_start = None
 
-    REENTRY_FRAME_THRESHOLD = 30  # ~1 second at 30 FPS
+    REENTRY_FRAME_THRESHOLD = 30  
     last_seen_frame = None
 
     def find_matching_id(new_embedding, embeddings, threshold=0.8):
@@ -164,9 +159,9 @@ def generate_report():
                 matching_id = find_matching_id(embedding, persistent_embeddings)
 
                 if matching_id is None:
-                    if timestamp < video_duration - 1:  # Ignore last second entries
+                    if timestamp < video_duration - 1:  
                         if next_id == 1:
-                            person1_last_seen = timestamp  # Set first person as Person 1
+                            person1_last_seen = timestamp  
                         persistent_embeddings[next_id] = embedding
                         cheating_log.append(f"Person {next_id} enters at {timestamp:.2f} seconds.")
                         next_id += 1
@@ -176,10 +171,9 @@ def generate_report():
                         last_seen_frame = frame_number
                         person1_out_of_frame_start = None
 
-        # Check if Person 1 has been missing for more than 2 seconds
         if person1_last_seen is not None and last_seen_frame is not None:
             frames_since_seen = frame_number - last_seen_frame
-            if frames_since_seen > (2 * frame_rate):  # 2 seconds in frames
+            if frames_since_seen > (2 * frame_rate):  
                 if person1_out_of_frame_start is None:
                     person1_out_of_frame_start = person1_last_seen
                     cheating_log.append(f"Person 1 left the camera at {person1_out_of_frame_start:.2f} seconds for more than 2 seconds.")
@@ -189,7 +183,6 @@ def generate_report():
     video_capture.release()
     cv2.destroyAllWindows()
 
-    # Write the Cheating Log or indicate no cheating detected
     doc.add_heading('Cheating Detection Log', level=1)
     if cheating_log:
         for log_entry in cheating_log:
@@ -197,13 +190,11 @@ def generate_report():
     else:
         doc.add_paragraph("No cheating detected.")
 
-    # Add NLP insights if the response is successful
     if nlp_response.status_code == 200:
         analysis_data = nlp_response.json()
         
         doc.add_heading('NLP Insight Analysis', level=1)
         
-        # Thought Process Metrics
         thought_process = analysis_data['thought_process_metrics']
         doc.add_heading('Thought Process Metrics', level=2)
         doc.add_paragraph(f"Total Sentences: {thought_process['total_sentences']}")
@@ -214,22 +205,18 @@ def generate_report():
         doc.add_heading('Identified Keywords', level=2)
         doc.add_paragraph(", ".join(analysis_data['keywords']))
         
-        # Topics - Improved for readability
         doc.add_heading('Identified Topics', level=2)
         doc.add_paragraph(
             "The following topics were identified in the candidate's responses, with keywords suggesting each topic's theme."
         )
         for topic_num, topic_content in enumerate(analysis_data['topics']):
-            # Extracting keywords from the topic string and removing probabilities for a cleaner output
             topic_keywords = ", ".join([word.split("*")[1].replace('"', '').strip() for word in topic_content[1].split(" + ")])
             doc.add_paragraph(f"Topic {topic_num + 1}: {topic_keywords}")
         
-        # Named Entities
         doc.add_heading('Named Entities Mentioned', level=2)
         for entity in analysis_data['entities']:
             doc.add_paragraph(f"{entity[0]} ({entity[1]})")
         
-        # Complexity Score - Explanation added
         doc.add_heading('Complexity Score (Readability)', level=2)
         complexity_score = analysis_data['complexity_score']
         doc.add_paragraph(
@@ -238,7 +225,6 @@ def generate_report():
             "For example, a score of 8 means that the text is generally understandable by an eighth-grader."
         )
         
-        # Technology Experience - Reformatted for clarity
         doc.add_heading('Mentioned Technology and Skills', level=2)
         if analysis_data['technology_experience']:
             for experience in analysis_data['technology_experience']:
@@ -251,7 +237,6 @@ def generate_report():
 
 
 
-    # 3. Extract 5 Random Frames from the Video
     def extract_random_frames(video_path, output_dir, num_frames=5):
         video_clip = VideoFileClip(video_path)
         duration = video_clip.duration
@@ -265,50 +250,34 @@ def generate_report():
             image_paths.append(image_path)
         return image_paths
 
-    # Define directories
     extracted_frames_dir = "/Users/riditjain/Downloads/extracted_frames"
     processed_images_dir = "/Users/riditjain/Downloads/processed_attire_images"
     os.makedirs(extracted_frames_dir, exist_ok=True)
     os.makedirs(processed_images_dir, exist_ok=True)
 
-    # Extract 5 random frames
     random_image_paths = extract_random_frames(video_path, extracted_frames_dir, num_frames=5)
 
-    # Process the extracted frames
     processed_image_paths = process_images(random_image_paths, processed_images_dir, threshold=0.8)
 
-    # 4. Insert Processed Images into the Word Document
     doc.add_heading('Attire Detection', level=1)
     for img_path in processed_image_paths:
         if os.path.exists(img_path):
-            doc.add_picture(img_path, width=Inches(6))  # Adjust width as needed
-            doc.add_paragraph(os.path.basename(img_path))  # Optionally add image name as caption
+            doc.add_picture(img_path, width=Inches(6))  
+            doc.add_paragraph(os.path.basename(img_path))  
         else:
             doc.add_paragraph(f"Image {img_path} not found.")
 
-    ## Emotion Detection
 
     doc.add_heading('Emotion Detection', level=1)
 
-    # Call the emotionsss function to analyze emotions in the video
     emotion_percentages = analyze_emotions(video_path)
 
-    # Write emotion detection results to the Word document
     if emotion_percentages:
         for emotion, percentage in emotion_percentages.items():
             doc.add_paragraph(f"{emotion}: {percentage:.2f}%")
     else:
         doc.add_paragraph("No emotions detected.")
 
-    ## Toxicity Detection
-
-
-
-
-    # Load the Toxicity model and tokenizer
-
-
-    # Define function for properly processing the text and getting toxicity predictions
     def get_toxicity_predictions(text, model, tokenizer, max_len=220):
         # Preprocess text for prediction
         text = pd.Series([text])
@@ -317,16 +286,13 @@ def generate_report():
         padded_sequence = pad_sequences(sequences, maxlen=max_len)
         input_tensor = torch.tensor(padded_sequence, dtype=torch.long)
         
-        # Predict and apply sigmoid for final probability scores
         with torch.no_grad():
             output = model(input_tensor)
-            probabilities = torch.sigmoid(output).cpu().numpy()  # Sigmoid activation for probabilities
-        return probabilities[0]  # Return the array of probabilities for the given classes
+            probabilities = torch.sigmoid(output).cpu().numpy()  
+        return probabilities[0] 
 
-    # Obtain toxicity prediction results
     toxicity_scores = get_toxicity_predictions(transcribed_text, toxicity_model, tokenizer)
 
-    # Convert toxicity prediction to a readable format
     def format_toxicity_results(prediction):
         labels = ["Toxicity", "Severe Toxicity", "Obscene", "Identity Attack", "Insult", "Threat"]
         result_text = ""
@@ -336,7 +302,6 @@ def generate_report():
 
     toxicity_results_text = format_toxicity_results(toxicity_scores)
 
-    # Add the toxicity results to the Word document
     doc.add_heading('Toxicity Detection Results', level=1)
     doc.add_paragraph(toxicity_results_text)
 
@@ -344,7 +309,6 @@ def generate_report():
 
     speaker_result = main_audio(audio_path)
 
-    # Add the speaker detection result to the Word document
     doc.add_heading('Speaker Diarization', level=1)
     doc.add_paragraph(speaker_result)
 
@@ -388,7 +352,6 @@ def generate_report():
     doc.add_paragraph(f"Lip Sync Similarity: {lip_sync_percentage}")
 
 
-    # Save the Word document
     doc.save(report_path)
 
     # Clean up temporary directories if used
