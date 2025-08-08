@@ -16,11 +16,6 @@ Technical hiring is slow, expensive, and often bottlenecked by engineers’ time
 - **Auto-summary** of long docs/answers for quick reviews
 - **Post-interview report** with rubric-based scoring and notes
 
-## Product snapshots
-
-_Add images in `/docs/images` and reference them here._
-
-- Landing, sign-ups, pricing, org dashboard, scheduler, skills panel, interview room, results, ATS view
 
 ## Stack
 
