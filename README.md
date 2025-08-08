@@ -63,11 +63,12 @@ flask run
 ```
 
 ### Frontend – React
+```bash
 
 cd app/frontend
 npm install
 npm run dev
-
+```
 
 ## How the interview flow works
 
